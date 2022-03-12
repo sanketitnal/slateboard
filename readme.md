@@ -14,6 +14,7 @@
 
 * [Click here to Use](https://knd-devsnest.github.io/slateboard/) ▶
 
+* [To use realtime](#realtime) ▶
 
 <a name="intro" />
 
@@ -68,5 +69,13 @@ the UI so that you won't get lost drawing lines over lines.
    * Download your generated sketch so you can show it to others !!! by simply clicking the download button .<br>
    Or better yet Upload your own json type file by simply dragging it into the browser window !!!
     
-  <a name="play" />  
  
+<a name="realtime" />
+* #### To use realtime app
+   * Download dependencies - From project folder run
+   ```npm i``` 
+   
+   * start node server - From project folder run
+   ```npm start```
+
+   * Open http://localhost:80 in browser - roomid will be appended to the link. This is a channel link. Any user who opens the newly formed link, will be able part of the room and can draw on the same board.
