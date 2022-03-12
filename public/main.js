@@ -40,14 +40,14 @@ function changeCursor(shapeType) {
   switch (shapeType) {
     case "square":
       canvas.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='feather feather-square'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/></svg>")
-      0 0,
+      16 16,
     crosshair`;
       break;
     case "circle":
       canvas.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='feather feather-circle'><circle cx='12' cy='12' r='10'/></svg>") 16 16, crosshair`;
       break;
     case "pen":
-      canvas.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='feather feather-edit-2'><path d='M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z'/></svg>") 0 24, crosshair`;
+      canvas.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='feather feather-edit-2'><path d='M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z'/></svg>") 16 16, crosshair`;
       break;
     case "eraser":
       canvas.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' stroke-linejoin='round' class='feather feather-sidebar'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><path d='M3 9h18'></path></svg>") 16 16, crosshair`;
@@ -83,28 +83,14 @@ document.getElementById("erase").addEventListener("click", () => {
   document.getElementById("erase").classList.toggle("selected");
 });
 
-var socket,
-  URL1 = "http://localhost:8000";
 let drawings = [];
+let myDrawingsIds = new Set();
 let localStorage = window.localStorage;
-
-/*socket = io.connect(URL);
-socket.on("hi", (data) => {
-  drawings = data;
-  reDraw();
-});
-
-socket.on("someonesMouseMoved", (data) => {
-  drawings.push(data);
-  reDraw();
-});
-*/
 
 document.oncontextmenu = () => false;
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-
 const penThickness = document.getElementById("thickness");
 const colorPicker = document.getElementById("color-picker");
 
@@ -114,20 +100,13 @@ canvas.width = window.innerWidth;
 ctx.fillStyle = "#fff";
 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-canvas.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='feather feather-edit-2'><path d='M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z'/></svg>") 0 24, crosshair`;
-
-// const socket = io("http://localhost:3000");
-// socket.on("init", handleInit);
+canvas.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='feather feather-edit-2'><path d='M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z'/></svg>") 16 16, crosshair`;
 
 // For handling resize:after
 if (localStorage.getItem("drawings") !== null) {
   drawings = JSON.parse(localStorage.getItem("drawings"));
-  undoDraw((shouldIPop = false));
-  localStorage.clear();
-}
-
-if (localStorage.getItem("backup") !== null) {
-  drawings = JSON.parse(localStorage.getItem("backup"));
+  redo_drawings = JSON.parse(localStorage.getItem("redodrawings"));
+  myDrawingsIds = new Set(JSON.parse(localStorage.getItem("mydrawingids")));
   undoDraw((shouldIPop = false));
   localStorage.clear();
 }
@@ -145,14 +124,25 @@ function redoDrawing() {
     reDraw(redo_drawings[redo_drawings.length - 1]);
     painting = false;
     ctx.beginPath();
-    drawings.push(redo_drawings.pop());
+    let newDrawing = redo_drawings.pop();
+    drawings.push(newDrawing);
+    undoDraw(shouldIPop = false);
+    socket.emit("pushCurrentDrawing", newDrawing);
   }
 }
 
 function undoDraw(shouldIPop = true) {
   if (shouldIPop === true && drawings.length > 0) {
-    redo_drawings.push(drawings.pop()); //save values in redo array
+    for(let i = drawings.length-1; i >= 0; --i) {
+      if(myDrawingsIds.has(drawings[i].createdBy)) { //This was drawn by me
+        redo_drawings.push({...drawings[i]});
+        socket.emit("deleteWithId", drawings[i].id); //Ask server to delete entry with this ID
+        drawings.splice(i,1); // Remove the entry from drawings
+        break;
+      }
+    }
   }
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -170,8 +160,14 @@ function clearCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  drawings = [];
+  for(let i = drawings.length-1; i >= 0; --i) {
+    if(myDrawingsIds.has(drawings[i].createdBy)) {
+      drawings.splice(i,1);
+    }
+  }
   redo_drawings = [];
+  socket.emit("deleteWithCreatedById", Array.from(myDrawingsIds));
+  undoDraw(shouldIPop = false);
 }
 
 function reDraw(currentDrawing) {
@@ -219,25 +215,17 @@ function reDraw(currentDrawing) {
   }
 }
 
-/*
-// Example
-currentDrawing = {
-    points: [{x: , y: }, {x: , y: }, {x: , y: } ... ],
-    strokeColor: 'red',
-    strokeWidth: 12
-}
-*/
-
 function startPosition(e) {
-  console.log(e);
   painting = true;
   currentDrawing = {
     points: [],
     thickness: shapeType == "eraser" ? penSize * 5 : penSize,
     color: shapeType == "eraser" ? "white" : penColor,
     shapeType,
+    createdBy: String(socket.id),
+    id: String(socket.id+Date.now())
+    // unique drawing identifier
   };
-  console.log(currentDrawing);
   draw(e);
 }
 
@@ -270,8 +258,11 @@ function endPosition() {
     ];
   }
   drawings.push(currentDrawing);
+  socket.emit("pushCurrentDrawing", currentDrawing);
+  undoDraw((shouldIPop = false));
   currentDrawing = {};
 }
+
 function draw(e) {
   if (shapeType === "eraser" && painting === false) {
     //console.log(e.type, 'here');
@@ -283,19 +274,7 @@ function draw(e) {
     ctx.stroke();
     ctx.beginPath();
   }
-  /*if (shapeType === "eraser") {
-    undoDraw((shouldIPop = false));
-    let halfLength = Math.max(20, Math.floor((penSize * 10) / 2));
-    let x = e.offsetX - halfLength,
-      y = e.offsetY - halfLength;
-    ctx.beginPath();
-    ctx.lineWidth = 3;
-    ctx.rect(x, y, 2 * halfLength, 2 * halfLength);
-    ctx.strokeStyle = "black";
-    ctx.stroke();
-    //ctx.begin();
-  }
-*/
+
   if (!painting) return;
   ctx.lineWidth = penSize;
   ctx.lineCap = "round";
@@ -396,7 +375,6 @@ function draw(e) {
     );
     ctx.stroke();
     ctx.beginPath();
-    //console.log(centerX, centerY, e.offsetX-centerX, e.offsetY - centerY, Math.PI / 4, 0, 2 * Math.PI);
   } else if (currentDrawing.shapeType === "circle") {
     if (currentDrawing.points.length == 0) {
       //first point of line
@@ -425,7 +403,6 @@ function draw(e) {
     ctx.stroke();
     ctx.beginPath();
     console.log(centerX, centerY);
-    //console.log(centerX, centerY, e.offsetX-centerX, e.offsetY - centerY, Math.PI / 4, 0, 2 * Math.PI);
   }
 }
 
@@ -453,7 +430,8 @@ window.addEventListener("resize", (event) => {
 function handleResize() {
   let localStorage = window.localStorage;
   localStorage.setItem("drawings", JSON.stringify(drawings));
-  // window.location.reload();
+  localStorage.setItem("redodrawings", JSON.stringify(redo_drawings));
+  localStorage.setItem("mydrawingids", JSON.stringify(Array.from(myDrawingsIds)));
   window.location.href = window.location.href;
 }
 
@@ -467,6 +445,49 @@ document.getElementById("erase").addEventListener("click", () => {
   document.getElementById("erase").classList.add("selected");
 });
 
-window.onbeforeunload = function (event) {
-  localStorage.setItem("backup", JSON.stringify(drawings));
-};
+let roomId = window.location.search
+if(roomId == "")  roomId = null
+else roomId = roomId.substring(1)
+console.log(roomId);
+let socket = io({auth: {roomId}});
+
+socket.on("connect", () => {
+  console.log("connected to socket", socket.id);
+  myDrawingsIds.add(String(socket.id));
+});
+
+socket.on("roomId", (room) => {
+  document.getElementById("roomId").innerHTML = "ROOM ID: " + room;
+  window.history.replaceState(null, "", `?${room}`)
+})
+
+socket.on("replaceDrawings", (newDrawings) => {
+  console.log("updateDrawings 441: ", newDrawings)
+  drawings = newDrawings;
+  undoDraw(shouldIPop = false);
+})
+
+socket.on("newCurrentDrawing", (currentDrawing) => {
+  drawings.push(currentDrawing);
+  if(painting === false)//avoids overwriting of half drawn strokes by client
+    undoDraw(shouldIPop = false);
+  // If painting === true then canvas is already being updated on mouse movement
+})
+socket.on("deleteWithId", (ID) => {
+  for(let i = drawings.length-1; i >= 0; --i) {
+    if(drawings[i].id == ID) {
+      drawings.splice(i, 1);
+      if(painting === false)  undoDraw(shouldIPop = false);
+      break;
+    }
+  }
+})
+socket.on("deleteWithCreatedById", drawingIds => {
+  let IDs = new Set(drawingIds);
+  for(let i = drawings.length-1; i >= 0; --i) {
+    if(IDs.has(drawings[i].createdBy)) {
+      drawings.splice(i, 1)
+    }
+  }
+  if(painting === false)  undoDraw(shouldIPop = false);
+})
