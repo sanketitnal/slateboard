@@ -70,12 +70,19 @@ the UI so that you won't get lost drawing lines over lines.
    Or better yet Upload your own json type file by simply dragging it into the browser window !!!
     
  
+ 
+ 
 <a name="realtime" />
-* #### To use realtime app
-   * Download dependencies - From project folder run
-   ```npm i``` 
-   
-   * start node server - From project folder run
+
+* #### To use realtime app :- 
+ * Download dependencies - From project folder run
+   ```npm i```
+
+ * start node server - From project folder run
    ```npm start```
 
-   * Open http://localhost:80 in browser - roomid will be appended to the link. This is a channel link. Any user who opens the newly formed link, will be able part of the room and can draw on the same board.
+ * Open http://localhost:80 in browser - roomid will be appended to the link. 
+   This is a channel link. Any user who opens the newly formed link, 
+   is part of the same room and can draw on the same board.
+ 
+ * Opening http://localhost:80 only will create new room.
