@@ -34,6 +34,20 @@ body {
   position: relative;
 }
 
+#roomId {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: inline-block;
+  background-color: green;
+  color: white;
+  -webkit-user-select: text;/* Safari */
+  -khtml-user-select: text; /* Konqueror HTML */
+  -moz-user-select: text;   /* Old versions of Firefox */
+  -ms-user-select: text;    /* Internet Explorer/Edge */
+  user-select: text;        /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+}
+
 .canvas {
   width: 100%;
   height: 100%;
